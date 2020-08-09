@@ -1,35 +1,39 @@
 import contextlib
 with contextlib.redirect_stdout(None):
-    import pygame, sys, random, math, time, ast, os, multiprocessing
+    import pygame, sys, random, math, time, ast, os
     from pygame.locals import *
     from multiprocessing import Pool
-    from itertools import product
-    from contextlib import contextmanager
+
 
 pool = Pool(os.cpu_count())
 
 
-def draw(screen, segments):
-    for seg in segments:
-        pygame.draw.line(screen, [0,0,255], [seg[0][0], seg[0][1]],[seg[1][0], seg[1][1]],1)
 
-def events():
+def events(segments):
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
 
-        if event.type == pygame.MOUSEBUTTONUP:
-            return pygame.mouse.get_pos()
-    return None
+        elif event.type == pygame.MOUSEBUTTONUP:
+            Mouse = pygame.mouse.get_pos()
+            segments.append([[Mouse[0]-25, Mouse[1]-25], [Mouse[0]+25, Mouse[1]-25]])
+            segments.append([[Mouse[0]+25, Mouse[1]-25], [Mouse[0]+25, Mouse[1]+25]])
+            segments.append([[Mouse[0]+25, Mouse[1]+25], [Mouse[0]-25, Mouse[1]+25]])
+            segments.append([[Mouse[0]-25, Mouse[1]+25], [Mouse[0]-25, Mouse[1]-25]])
+            return segments
 
+        elif event.type == pygame.KEYDOWN and pygame.key == k_F5:
+            print("F5")
 
-def addTile(segments, Mouse):
-    segments.append([[Mouse[0]-25, Mouse[1]-25], [Mouse[0]+25, Mouse[1]-25]])
-    segments.append([[Mouse[0]+25, Mouse[1]-25], [Mouse[0]+25, Mouse[1]+25]])
-    segments.append([[Mouse[0]+25, Mouse[1]+25], [Mouse[0]-25, Mouse[1]+25]])
-    segments.append([[Mouse[0]-25, Mouse[1]+25], [Mouse[0]-25, Mouse[1]-25]])
     return segments
+
+
+def draw(screen, clock, segments):
+    for seg in segments:
+        pygame.draw.line(screen, [0,0,255], [seg[0][0], seg[0][1]],[seg[1][0], seg[1][1]],1)
+    fps = font.render(str(int(clock.get_fps()))+" FPS", True, pygame.Color('Green'))
+    screen.blit(fps, [0,0])
 
 
 if __name__ == "__main__":
@@ -48,12 +52,10 @@ if __name__ == "__main__":
         [[-1,720], [-1,-1]]]
 
     while True:
-        Mouse = events()
-        if Mouse is not None:
-            segments = addTile(segments, Mouse)
-
-        draw(screen, segments)
-
         screen.fill([0,0,0])
+        segments = events(segments)
+
+        draw(screen, clock, segments)
+
         pygame.display.flip()
         clock.tick()

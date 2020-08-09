@@ -5,6 +5,8 @@ with contextlib.redirect_stdout(None):
     from multiprocessing import Pool
     from itertools import product
     from contextlib import contextmanager
+    from functools import partial
+
 
 
 ##Find intersection of RAY & SEGMENT
@@ -75,55 +77,58 @@ def getAllAngles(canvas, segments, Mouse, uniquePoints):
         angle = math.atan2(uniquePoint[1]-Mouse[1],uniquePoint[0]-Mouse[0])
         uniqueAngles.extend([angle-0.00001,angle,angle+0.00001])
 
-    calcRays(canvas, segments, Mouse, uniqueAngles)
-
-##    canvas, segments, Mouse, intersects, calcTime = calcRays(canvas, segments, Mouse, uniqueAngles)
-##    sortByAngle(canvas, segments, Mouse, intersects, calcTime)
-
-
-def calcRays(canvas, segments, Mouse, uniqueAngles):
+    intersects = calcRays(segments, uniqueAngles, Mouse)
     global pool
+    #BAD/OLD intersects = pool.map(calcRays, [segments, uniqueAngles])
+    # func = partial(calcRays, segments, uniqueAngles)
+    # iterable = [Mouse]
+    # intersects = pool.map(func, iterable)
+    sortByAngle(canvas, segments, Mouse, intersects)
+
+
+def calcRays(segments, uniqueAngles, Mouse):
     ##RAYS IN ALL DIRECTIONS
     intersects = []
-    closeTime = time.time()
-
-    rays = []
     for angle in uniqueAngles:
+
         ##Calculate dx & dy from angle
         dx = math.cos(angle)
         dy = math.sin(angle)
+
         ##Ray from center of screen to mouse
-        rays.append([Mouse,[dx, dy]])
+        ray = [Mouse,[dx, dy]]
 
-    ##Find closest interaction
-    intersects = pool.starmap(getIntersection, product(rays, segments))
+        ##Find closest interaction
+        closestIntersect = None
+        for segment in segments:
+            intersect = getIntersection(ray, segment)
+            if intersect is None:
+                continue
+            if closestIntersect is None or intersect[2]<closestIntersect[2]:
+                closestIntersect = list(intersect)
 
-    closestIntersect = None
-    for intersect in intersects:
-        if intersect is None:
+
+        ##Intersect angle
+        if closestIntersect is None:
             continue
-        if closestIntersect is None or intersect[2]<closestIntersect[2]:
-            closestIntersect = list(intersect)
+        closestIntersect.append(angle)
 
+        ##Add to list of intersects
+        intersects.append(closestIntersect)
 
-    calcTime = time.time() - closeTime
+    return intersects
 
-##    return canvas, segments, Mouse, intersects, calcTime
-
-    sortByAngle(canvas, segments, Mouse, intersects, calcTime)
-
-def sortByAngle(canvas, segments, Mouse, intersects, calcTime):
+def sortByAngle(canvas, segments, Mouse, intersects):
     ##Sort intersects by angle
     try:
         intersects = sorted(intersects,key=lambda l:l[3])
         dsTime = time.time()
-        drawPolygons(canvas, segments, Mouse, intersects, dsTime, calcTime)
+        drawPolygons(canvas, segments, Mouse, intersects)
     except Exception as e:
         dsTime = time.time()
-        times(canvas, dsTime, calcTime)
 
 
-def drawPolygons(canvas, segments, Mouse, intersects, calcTime):
+def drawPolygons(canvas, segments, Mouse, intersects):
     ##Draw as a polygon
     plot = []
     for intersect in intersects:
@@ -131,22 +136,12 @@ def drawPolygons(canvas, segments, Mouse, intersects, calcTime):
 ##    pygame.draw.polygon(canvas, [221,56,56], plot)    #Red
     pygame.draw.polygon(canvas, [238,238,238], plot)    #Off White
 
-    ##Draw debug lines
-##    for intersect in intersects:
-##        pygame.draw.line(canvas, [200,200,200], [Mouse[0], Mouse[1]], [intersect[0],intersect[1]])
-    times(canvas, dsTime, calcTime)
-
-
-def times(canvas, dsTime, calcTime):
-    calcTimeTXT = font.render("Calc time: "+str(calcTime), True, pygame.Color('Green'))
-    canvas.blit(calcTimeTXT, [1000,0])
-
-    drawTimeTXT = font.render("Draw time: "+str(time.time()-dsTime), True, pygame.Color('Green'))
-    canvas.blit(drawTimeTXT, [1000,20])
-
     fps = font.render(str(int(clock.get_fps()))+" FPS", True, pygame.Color('Green'))
     canvas.blit(fps, [0,0])
 
+    ##Draw debug lines
+##    for intersect in intersects:
+##        pygame.draw.line(canvas, [200,200,200], [Mouse[0], Mouse[1]], [intersect[0],intersect[1]])
 
 
 
@@ -156,7 +151,6 @@ def drawLoop(updateCanvas, canvas, segments, Mouse):
     	draw(canvas, segments, Mouse)
     	updateCanvas = False
     	pygame.display.flip()
-
 
 
 
@@ -180,7 +174,7 @@ if __name__ == "__main__":
 
     updateCanvas = True
 
-    ##MOUSE	
+    ##MOUSE
     Mouse = [canvas.get_width()/2, canvas.get_height()/2]
     while True:
         clock.tick()
@@ -205,15 +199,3 @@ if __name__ == "__main__":
         Mouse = pygame.mouse.get_pos()
         updateCanvas = True
         drawLoop(updateCanvas, canvas, segments, Mouse)
-
-
-
-
-
-
-
-
-
-
-
-
